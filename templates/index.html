@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Internship Task – DynamoDB Manager</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #f78166;
+      --green:     #3fb950;
+      --yellow:    #e3b341;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --radius:    12px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    header .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #1f6feb 0%, #388bfd 100%);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+    }
+    header h1 {
+      font-size: clamp(22px, 4vw, 34px);
+      font-weight: 700;
+      background: linear-gradient(90deg, #58a6ff, #a371f7);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 14px;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+    .container { max-width: 1100px; margin: 0 auto; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+
+    /* ── Card ────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card h2 .icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .icon-blue  { background: rgba(88,166,255,.15); }
+    .icon-green { background: rgba(63,185,80,.15);  }
+
+    /* ── Drop Zone ───────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(88,166,255,.05);
+    }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-zone .dz-icon { font-size: 36px; margin-bottom: 10px; }
+    .drop-zone p { color: var(--muted); font-size: 13px; }
+    .drop-zone .file-name {
+      margin-top: 8px; font-weight: 500; color: var(--accent); font-size: 13px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px;
+      padding: 11px 22px;
+      border: none; border-radius: 8px;
+      font-family: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity .15s, transform .1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+    .btn-primary  { background: var(--accent); color: #0d1117; }
+    .btn-success  { background: var(--green);  color: #0d1117; }
+    .btn-danger   { background: var(--accent2);color: #0d1117; }
+
+    .btn-primary:hover:not(:disabled)  { opacity: .88; }
+    .btn-success:hover:not(:disabled)  { opacity: .88; }
+    .btn-danger:hover:not(:disabled)   { opacity: .88; }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 20px;
+      font-size: 13px; max-width: 340px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.5);
+      transform: translateY(20px); opacity: 0;
+      transition: all .3s; z-index: 999; pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { border-left: 4px solid var(--green); }
+    #toast.error   { border-left: 4px solid var(--accent2); }
+    #toast.info    { border-left: 4px solid var(--accent); }
+
+    /* ── Status pill ─────────────────────────────────────────────── */
+    #upload-status, #retrieve-status {
+      font-size: 13px; padding: 10px 14px;
+      border-radius: 8px; background: var(--surface2);
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    /* ── Data table ──────────────────────────────────────────────── */
+    #table-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: none;
+    }
+    #table-section h2 {
+      font-size: 16px; font-weight: 600; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    #count-badge {
+      background: var(--surface2); border: 1px solid var(--border);
+      font-size: 12px; padding: 2px 10px; border-radius: 20px;
+      color: var(--muted);
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 8px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td {
+      padding: 10px 14px;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Rating pill */
+    .rating {
+      display: inline-block;
+      background: rgba(227,179,65,.15);
+      color: var(--yellow);
+      font-weight: 600;
+      padding: 2px 8px; border-radius: 20px; font-size: 12px;
+    }
+    /* Tier pill */
+    .tier-premium  { background: rgba(163,113,247,.15); color: #a371f7; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .tier-standard { background: rgba(88,166,255,.15);  color: #58a6ff; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .tier-startup  { background: rgba(63,185,80,.15);   color: #3fb950; padding: 2px 8px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Search bar */
+    #search-wrap { margin-bottom: 14px; }
+    #search {
+      width: 100%; padding: 9px 14px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-family: inherit; font-size: 13px;
+    }
+    #search:focus { outline: none; border-color: var(--accent); }
+    #search::placeholder { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="badge">Task · Python + Flask · AWS DynamoDB</div>
+    <h1>📊 DynamoDB Data Manager</h1>
+    <p>Upload any Excel or CSV file → Store in AWS DynamoDB → Retrieve live from the cloud</p>
+  </header>
+
+  <!-- Upload + Retrieve cards -->
+  <div class="cards">
+
+    <!-- Card 1: Upload -->
+    <div class="card">
+      <h2>
+        <span class="icon icon-blue">📤</span>
+        Upload File to DynamoDB
+      </h2>
+      <p style="color:var(--muted);font-size:13px;">
+        Select your <strong>Excel or CSV file</strong>. Each row will be
+        automatically read and inserted into AWS DynamoDB.
+      </p>
+
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+        <div class="dz-icon">📂</div>
+        <p>Drag & drop your file here, or <strong>click to browse</strong></p>
+        <div class="file-name" id="file-label">No file selected</div>
+      </div>
+
+      <button class="btn btn-primary" id="upload-btn" onclick="uploadFile()" disabled>
+        ⬆ Upload to AWS DynamoDB
+      </button>
+
+      <div id="upload-status"></div>
+    </div>
+
+    <!-- Card 2: Retrieve -->
+    <div class="card">
+      <h2>
+        <span class="icon icon-green">☁</span>
+        Retrieve from AWS DynamoDB
+      </h2>
+      <p style="color:var(--muted);font-size:13px;">
+        Fetch all records stored in AWS DynamoDB
+        and display them live on this webpage.
+      </p>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-success" id="retrieve-btn" onclick="retrieveData()">
+          ☁ Retrieve from AWS
+        </button>
+        <button class="btn btn-danger" onclick="clearTable()">
+          🗑 Clear View
+        </button>
+      </div>
+
+      <div id="retrieve-status"></div>
+    </div>
+
+  </div><!-- /.cards -->
+
+  <!-- Data table section -->
+  <div id="table-section">
+    <h2>
+      📊 Data from DynamoDB
+      <span id="count-badge">0 records</span>
+    </h2>
+    <div id="search-wrap">
+      <input type="text" id="search" placeholder="🔍 Search by name, city, tier…" oninput="filterTable()" />
+    </div>
+    <div class="table-wrap">
+      <table id="data-table">
+        <thead id="table-head"></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /.container -->
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<script>
+  // ── File picker ───────────────────────────────────────────────
+  const fileInput  = document.getElementById('file-input');
+  const fileLabel  = document.getElementById('file-label');
+  const uploadBtn  = document.getElementById('upload-btn');
+  const dropZone   = document.getElementById('drop-zone');
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) {
+      fileLabel.textContent = fileInput.files[0].name;
+      uploadBtn.disabled = false;
+    }
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    fileInput.files = e.dataTransfer.files;
+    if (fileInput.files.length) {
+      fileLabel.textContent = fileInput.files[0].name;
+      uploadBtn.disabled = false;
+    }
+  });
+
+  // ── Toast helper ──────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className   = 'show ' + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = ''; }, 4000);
+  }
+
+  // ── Upload ────────────────────────────────────────────────────
+  async function uploadFile() {
+    const file = fileInput.files[0];
+    if (!file) { showToast('Please select a file first.', 'error'); return; }
+
+    const status = document.getElementById('upload-status');
+    status.style.display = 'block';
+    status.innerHTML     = '<span class="spinner"></span>  Uploading and inserting into DynamoDB…';
+    uploadBtn.disabled   = true;
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    try {
+      const res  = await fetch('/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (data.success) {
+        status.innerHTML = `✅  ${data.message}`;
+        showToast(data.message, 'success');
+      } else {
+        status.innerHTML = `❌  ${data.message}`;
+        showToast(data.message, 'error');
+      }
+    } catch (err) {
+      status.innerHTML = `❌  Network error: ${err.message}`;
+      showToast('Upload failed — check Flask server.', 'error');
+    } finally {
+      uploadBtn.disabled = false;
+    }
+  }
+
+  // ── Retrieve ──────────────────────────────────────────────────
+  let allItems = [];
+
+  async function retrieveData() {
+    const status      = document.getElementById('retrieve-status');
+    const retrieveBtn = document.getElementById('retrieve-btn');
+    status.style.display = 'block';
+    status.innerHTML     = '<span class="spinner"></span>  Fetching data from AWS…';
+    retrieveBtn.disabled = true;
+
+    try {
+      const res  = await fetch('/retrieve');
+      const data = await res.json();
+
+      if (data.success) {
+        allItems = data.data;
+        status.innerHTML = `✅  Loaded <strong>${data.count}</strong> records from DynamoDB.`;
+        showToast(`${data.count} records retrieved!`, 'success');
+        renderTable(allItems);
+      } else {
+        status.innerHTML = `❌  ${data.message}`;
+        showToast(data.message, 'error');
+      }
+    } catch (err) {
+      status.innerHTML = `❌  Network error: ${err.message}`;
+      showToast('Retrieve failed — check Flask server.', 'error');
+    } finally {
+      retrieveBtn.disabled = false;
+    }
+  }
+
+  // ── Render table ──────────────────────────────────────────────
+  // Priority columns shown first; rest appended
+  const PRIORITY = ['BusinessName','Phone','City','Rating','LeadTier','TrustScore','Address','Website'];
+  // d1/d2/d3 are internal alias columns stored in DynamoDB for the recruiter requirement.
+  // We don't show them in the UI because they duplicate BusinessName/Phone/Rating columns.
+  const HIDDEN_COLS = new Set(['d1', 'd2', 'd3']);
+
+  function renderTable(items) {
+    if (!items.length) { document.getElementById('table-section').style.display = 'none'; return; }
+
+    const allKeys = [...new Set(items.flatMap(i => Object.keys(i)))].filter(k => !HIDDEN_COLS.has(k));
+    const ordered = [...PRIORITY.filter(k => allKeys.includes(k)),
+                     ...allKeys.filter(k => !PRIORITY.includes(k))];
+
+    // Head
+    const head = document.getElementById('table-head');
+    head.innerHTML = '<tr>' + ordered.map(k => `<th>${k}</th>`).join('') + '</tr>';
+
+    renderRows(items, ordered);
+    document.getElementById('count-badge').textContent = `${items.length} records`;
+    document.getElementById('table-section').style.display = 'block';
+  }
+
+  function renderRows(items, ordered) {
+    const body = document.getElementById('table-body');
+    body.innerHTML = items.map(item => {
+      const cells = ordered.map(k => {
+        const v = item[k] ?? '';
+        if (k === 'Rating')    return `<td><span class="rating">⭐ ${v}</span></td>`;
+        if (k === 'LeadTier') {
+          const cls = v.toLowerCase().includes('premium') ? 'tier-premium'
+                    : v.toLowerCase().includes('startup')  ? 'tier-startup'
+                    : 'tier-standard';
+          return `<td><span class="${cls}">${v}</span></td>`;
+        }
+        if (k === 'Website' && v && v !== 'N/A')
+          return `<td><a href="${v}" target="_blank" style="color:var(--accent)">🔗 link</a></td>`;
+        return `<td title="${String(v).replace(/"/g,"&quot;")}">${v}</td>`;
+      });
+      return '<tr>' + cells.join('') + '</tr>';
+    }).join('');
+  }
+
+  // ── Search / filter ───────────────────────────────────────────
+  function filterTable() {
+    const q = document.getElementById('search').value.toLowerCase().trim();
+    const filtered = q
+      ? allItems.filter(i => JSON.stringify(i).toLowerCase().includes(q))
+      : allItems;
+
+    const allKeys = [...new Set(allItems.flatMap(i => Object.keys(i)))].filter(k => !HIDDEN_COLS.has(k));
+    const ordered = [...PRIORITY.filter(k => allKeys.includes(k)),
+                     ...allKeys.filter(k => !PRIORITY.includes(k))];
+
+    renderRows(filtered, ordered);
+    document.getElementById('count-badge').textContent = `${filtered.length} records`;
+  }
+
+  // ── Clear ─────────────────────────────────────────────────────
+  function clearTable() {
+    allItems = [];
+    document.getElementById('table-section').style.display = 'none';
+    document.getElementById('retrieve-status').style.display = 'none';
+    document.getElementById('search').value = '';
+    showToast('Table view cleared.', 'info');
+  }
+</script>
+
+</body>
+</html>
